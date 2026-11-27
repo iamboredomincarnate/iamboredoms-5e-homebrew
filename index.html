@@ -1890,6 +1890,43 @@ th[data-hve-editing] {
   color: #10B981;
   box-shadow: inset 0 0 0 1px rgba(16,185,129,0.2);
 }
+
+.repo-toc {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid #e6dfd8;
+}
+
+.repo-toc h2 {
+  margin: 0 0 8px;
+}
+
+.repo-toc-intro,
+.repo-toc-status {
+  color: #5f5b54;
+}
+
+.repo-toc-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.repo-toc-group h3 {
+  margin: 0 0 8px;
+  font-size: 1.05em;
+}
+
+.repo-toc-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.repo-toc a {
+  color: #8f4932;
+  overflow-wrap: anywhere;
+}
 </style>
 </head>
 <body class="hve-web-active hve-edit-mode">
@@ -1901,7 +1938,12 @@ th[data-hve-editing] {
   <h1 style="font-size: 2.4em; font-weight: 700; margin-bottom: 8px; color: rgb(20, 20, 19); cursor: move;">Hey! What is this?</h1>
   <p style="font-size: 1.1em; color: rgb(61, 61, 58); margin-bottom: 32px; cursor: move;">Hi! Sorry, this is mainly made for storing .pdf files for integrations that need links to .pdf files and such rather than direct uploads.&nbsp;</p><div style="cursor: text;">If you see anything around that seems interesting, have fun!<br><br>- iamboredom</div><p></p>
 
-  
+  <section class="repo-toc" aria-labelledby="repo-toc-title">
+    <h2 id="repo-toc-title">Table of Contents</h2>
+    <p class="repo-toc-intro">Here's the overall contents of this site! Take a look around and find anything you like.</p>
+    <p class="repo-toc-status" id="repo-toc-status" role="status" aria-live="polite">Loading repository files…</p>
+    <div class="repo-toc-groups" id="repo-toc-groups"></div>
+  </section>
 
   <!-- Quick Start -->
   
@@ -1942,6 +1984,75 @@ th[data-hve-editing] {
   
 </footer>
 
+<script>
+  (async function loadRepositoryFiles() {
+    const status = document.getElementById('repo-toc-status');
+    const groupsContainer = document.getElementById('repo-toc-groups');
+    const repositoryUrl = 'https://github.com/iamboredomincarnate/iamboredoms-5e-homebrew';
+
+    try {
+      const response = await fetch(
+        'https://api.github.com/repos/iamboredomincarnate/iamboredoms-5e-homebrew/git/trees/main?recursive=1'
+      );
+      if (!response.ok) {
+        throw new Error('GitHub returned ' + response.status);
+      }
+
+      const tree = await response.json();
+      const filesByFolder = new Map();
+      for (const entry of tree.tree) {
+        if (entry.type !== 'blob' || entry.path === 'index.html') {
+          continue;
+        }
+
+        const separator = entry.path.lastIndexOf('/');
+        const folder = separator === -1 ? 'Root' : entry.path.slice(0, separator);
+        const filename = separator === -1 ? entry.path : entry.path.slice(separator + 1);
+        if (!filesByFolder.has(folder)) {
+          filesByFolder.set(folder, []);
+        }
+        filesByFolder.get(folder).push({ filename, path: entry.path });
+      }
+
+      for (const folder of Array.from(filesByFolder.keys()).sort((a, b) => a.localeCompare(b))) {
+        const section = document.createElement('section');
+        section.className = 'repo-toc-group';
+
+        const heading = document.createElement('h3');
+        heading.textContent = folder;
+        section.appendChild(heading);
+
+        const list = document.createElement('ul');
+        const files = filesByFolder.get(folder).sort((a, b) => a.filename.localeCompare(b.filename));
+        for (const file of files) {
+          const item = document.createElement('li');
+          const link = document.createElement('a');
+          link.href = file.path.split('/').map(encodeURIComponent).join('/');
+          link.textContent = file.filename;
+          item.appendChild(link);
+          list.appendChild(item);
+        }
+        section.appendChild(list);
+        groupsContainer.appendChild(section);
+      }
+
+      status.hidden = filesByFolder.size > 0;
+      if (!filesByFolder.size) {
+        status.textContent = 'No files were found.';
+      }
+    } catch (error) {
+      console.error('Unable to load repository files:', error);
+      status.textContent = 'Could not load the file list. Browse the repository on GitHub instead.';
+      const link = document.createElement('a');
+      link.href = repositoryUrl;
+      link.textContent = 'Open repository';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      status.appendChild(document.createTextNode(' '));
+      status.appendChild(link);
+    }
+  })();
+</script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script src="editor-bundle.min.js?v=2"></script>
 
